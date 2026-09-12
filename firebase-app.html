@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aegill // Firebase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{color-scheme:dark}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:transparent}
+  body{font-family:"Space Mono",monospace;color:#eee}
+
+  /* ---- journal (public) ---- */
+  .log-post{border:1px solid #292929;background:rgba(8,8,8,.55);padding:16px 18px;margin-bottom:14px}
+  .log-post time{display:block;font-size:10px;letter-spacing:.1em;color:#888;margin-bottom:6px}
+  .log-post h3{font-family:"Unbounded",sans-serif;font-size:15px;margin:0 0 8px}
+  .log-post p{font-size:12.5px;line-height:1.6;color:#ccc;margin:0 0 10px;white-space:pre-wrap}
+  .log-post img{max-width:100%;display:block;margin-bottom:10px}
+  .log-footer{font-size:9px;letter-spacing:.1em;color:#777}
+  .journal-loading{font-size:11px;color:#666;padding:10px 0}
+
+  /* ---- admin (from original site) ---- */
+  .admin-panel{max-width:1100px;margin:0 auto}
+  .admin-auth,.admin-dashboard{border:1px solid #303030;background:rgba(8,8,8,.72);padding:22px}
+  .admin-auth{max-width:520px}
+  .admin-kicker{font-size:11px;letter-spacing:.16em;color:#8e8e8e;margin-bottom:8px}
+  .admin-title{font-family:"Unbounded",sans-serif;font-size:22px;margin:0 0 18px}
+  .admin-status{margin:12px 0;padding:10px;border:1px solid #292929;font-size:11px;color:#aaa}
+  .admin-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .admin-field{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
+  .admin-field.full{grid-column:1/-1}
+  .admin-field label{font-size:10px;letter-spacing:.12em;color:#888}
+  .admin-field input,.admin-field textarea{width:100%;border:1px solid #333;background:#050505;color:#eee;padding:11px;font:12px "Space Mono",monospace;outline:none}
+  .admin-field input:focus,.admin-field textarea:focus{border-color:#777;box-shadow:0 0 0 1px #222}
+  .admin-field textarea{min-height:200px;resize:vertical;line-height:1.6}
+  .admin-check{display:flex;align-items:center;gap:8px;font-size:11px;color:#aaa;margin:4px 0 16px}
+  .admin-actions{display:flex;flex-wrap:wrap;gap:9px}
+  .admin-btn{border:1px solid #444;background:#0b0b0b;color:#eee;padding:10px 13px;font:10px "Space Mono",monospace;letter-spacing:.08em;cursor:pointer}
+  .admin-btn:hover{border-color:#aaa;background:#151515}
+  .admin-btn.primary{background:#eee;color:#050505;border-color:#eee}
+  .admin-btn.danger{border-color:#663838;color:#ff9a9a}
+  .admin-userbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:18px;margin-bottom:18px;border-bottom:1px solid #292929}
+  .admin-user{font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis}
+  .admin-columns{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(260px,.8fr);gap:20px}
+  .admin-list{display:grid;gap:8px}
+  .admin-post-row{border:1px solid #292929;padding:12px;background:#070707}
+  .admin-post-row h4{margin:0 0 7px;font-size:13px}
+  .admin-post-meta{font-size:9px;color:#777;margin-bottom:9px}
+  .admin-post-actions{display:flex;gap:7px}
+  .admin-post-actions button{border:1px solid #333;background:#0d0d0d;color:#bbb;padding:6px 8px;font:9px "Space Mono",monospace;cursor:pointer}
+  .admin-post-actions button:hover{color:#fff;border-color:#777}
+  .admin-empty{border:1px dashed #333;padding:22px;text-align:center;color:#666;font-size:10px}
+  .admin-error{color:#ff8f8f}
+  .admin-success{color:#9ff0b0}
+  @media(max-width:820px){.admin-form-grid,.admin-columns{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+  <!-- PUBLIC JOURNAL (shown when there is no #admin hash) -->
+  <div id="journalView"></div>
+
+  <!-- ADMIN (shown when the page is loaded with #admin) -->
+  <div id="adminView" class="admin-panel" hidden>
+    <div class="admin-auth" id="adminLogin">
+      <div class="admin-kicker">AUTHENTICATION REQUIRED</div>
+      <h3 class="admin-title">Aegill Admin</h3>
+      <form id="adminLoginForm">
+        <div class="admin-field">
+          <label for="adminEmail">EMAIL</label>
+          <input id="adminEmail" type="email" autocomplete="username" required placeholder="admin@email.com">
+        </div>
+        <div class="admin-field">
+          <label for="adminPassword">PASSWORD</label>
+          <input id="adminPassword" type="password" autocomplete="current-password" required placeholder="••••••••">
+        </div>
+        <div class="admin-actions">
+          <button class="admin-btn primary" type="submit">AUTHENTICATE →</button>
+        </div>
+      </form>
+      <div class="admin-status" id="adminAuthStatus">FIREBASE AUTH: WAITING</div>
+    </div>
+
+    <div class="admin-dashboard" id="adminDashboard" hidden>
+      <div class="admin-userbar">
+        <div>
+          <div class="admin-kicker">AUTHORIZED SESSION</div>
+          <div class="admin-user" id="adminUserLabel"></div>
+        </div>
+        <button class="admin-btn" id="adminLogout" type="button">LOG OUT</button>
+      </div>
+
+      <div class="admin-columns">
+        <section>
+          <div class="admin-kicker">EDITOR</div>
+          <h3 class="admin-title" id="adminEditorTitle">NEW JOURNAL ENTRY</h3>
+          <form id="postForm">
+            <input id="postId" type="hidden">
+            <div class="admin-form-grid">
+              <div class="admin-field full">
+                <label for="postTitle">TITLE</label>
+                <input id="postTitle" required maxlength="180" placeholder="POST TITLE">
+              </div>
+              <div class="admin-field full">
+                <label for="postExcerpt">EXCERPT</label>
+                <input id="postExcerpt" maxlength="300" placeholder="SHORT DESCRIPTION">
+              </div>
+              <div class="admin-field full">
+                <label for="postContent">CONTENT</label>
+                <textarea id="postContent" required placeholder="WRITE YOUR JOURNAL ENTRY..."></textarea>
+              </div>
+              <div class="admin-field full">
+                <label for="postImage">IMAGE PATH (relative to your Neocities site, e.g. images/journal01.png)</label>
+                <input id="postImage" maxlength="300" placeholder="images/journal01.png">
+              </div>
+            </div>
+            <label class="admin-check">
+              <input id="postPublished" type="checkbox">
+              PUBLISHED — SHOW IN JOURNAL
+            </label>
+            <div class="admin-actions">
+              <button class="admin-btn primary" type="submit">SAVE ENTRY</button>
+              <button class="admin-btn" id="postNew" type="button">NEW / CLEAR</button>
+              <button class="admin-btn danger" id="postDelete" type="button" hidden>DELETE</button>
+            </div>
+            <div class="admin-status" id="postStatus">EDITOR: READY</div>
+          </form>
+        </section>
+        <aside>
+          <div class="admin-kicker">FIRESTORE / POSTS</div>
+          <div class="admin-list" id="adminPostList">
+            <div class="admin-empty">LOADING POSTS...</div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+  import {
+    getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
+  } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+  import {
+    getFirestore, collection, addDoc, doc, getDocs, query, where,
+    orderBy, updateDoc, deleteDoc, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+  /* ============================================================
+     SAME CONFIG AS BEFORE — copy from Firebase Console.
+     ============================================================ */
+  const firebaseConfig = {
+    apiKey: "AIzaSyBjBrzjrdtpx_qdpHMR6SMTthU5vI1Zenk",
+    authDomain: "test-abb3e.firebaseapp.com",
+    projectId: "test-abb3e",
+    storageBucket: "test-abb3e.firebasestorage.app",
+    messagingSenderId: "685916701163",
+    appId: "1:685916701163:web:1ab7dca6859162d5c499ae"
+  };
+  const ADMIN_UID = "OUX4KoHS1gf046xBMhxHn3YviwH2";
+
+  /* ============================================================
+     IMPORTANT: this file is hosted separately from your Neocities
+     site, so image paths like "images/journal01.png" need to be
+     turned into full URLs pointing back at your real site.
+     Replace with your actual Neocities URL (no trailing slash).
+     ============================================================ */
+  const SITE_ORIGIN = "https://aegill.neocities.org";
+
+  const $ = (id) => document.getElementById(id);
+
+  const journalView = $("journalView");
+  const adminView = $("adminView");
+  const adminLogin = $("adminLogin");
+  const adminDashboard = $("adminDashboard");
+  const adminLoginForm = $("adminLoginForm");
+  const adminLogout = $("adminLogout");
+  const adminAuthStatus = $("adminAuthStatus");
+  const adminUserLabel = $("adminUserLabel");
+  const postForm = $("postForm");
+  const postId = $("postId");
+  const postTitle = $("postTitle");
+  const postExcerpt = $("postExcerpt");
+  const postContent = $("postContent");
+  const postImage = $("postImage");
+  const postPublished = $("postPublished");
+  const postStatus = $("postStatus");
+  const postDelete = $("postDelete");
+  const postNew = $("postNew");
+  const adminEditorTitle = $("adminEditorTitle");
+  const adminPostList = $("adminPostList");
+
+  const isAdminMode = location.hash.startsWith("#admin");
+  journalView.hidden = isAdminMode;
+  adminView.hidden = !isAdminMode;
+
+  let auth = null, db = null, currentUser = null, editingPost = null;
+
+  function reportHeight() {
+    parent.postMessage({ source: "aegill-embed", height: document.body.scrollHeight }, "*");
+  }
+  new ResizeObserver(reportHeight).observe(document.body);
+  window.addEventListener("load", reportHeight);
+
+  function setStatus(msg, type = "") {
+    if (!postStatus) return;
+    postStatus.textContent = msg;
+    postStatus.className = "admin-status" + (type ? " admin-" + type : "");
+  }
+  function setAuthStatus(msg, type = "") {
+    if (!adminAuthStatus) return;
+    adminAuthStatus.textContent = msg;
+    adminAuthStatus.className = "admin-status" + (type ? " admin-" + type : "");
+  }
+  function clearEditor() {
+    editingPost = null;
+    postId.value = ""; postTitle.value = ""; postExcerpt.value = "";
+    postContent.value = ""; postImage.value = ""; postPublished.checked = false;
+    adminEditorTitle.textContent = "NEW JOURNAL ENTRY";
+    postDelete.hidden = true;
+    setStatus("EDITOR: READY");
+  }
+  function formatDate(ts) {
+    if (!ts) return "NO DATE";
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} — ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  const escapeText = (v) => String(v ?? "");
+  function safeImagePath(value) {
+    const path = String(value || "").trim();
+    if (!path) return "";
+    if (!path.startsWith("images/")) return "";
+    if (path.includes("..") || path.includes("\\") || path.includes("\0")) return "";
+    return path;
+  }
+
+  function renderJournal(posts) {
+    journalView.innerHTML = "";
+    if (!posts.length) {
+      journalView.innerHTML = '<div class="journal-loading">NO PUBLISHED ENTRIES YET.</div>';
+      return;
+    }
+    posts.forEach((item) => {
+      const data = item.data();
+      const article = document.createElement("article");
+      article.className = "log-post";
+
+      const time = document.createElement("time");
+      time.textContent = formatDate(data.createdAt);
+
+      const title = document.createElement("h3");
+      title.textContent = escapeText(data.title);
+
+      article.append(time, title);
+
+      if (data.excerpt) {
+        const excerpt = document.createElement("p");
+        excerpt.textContent = escapeText(data.excerpt);
+        article.appendChild(excerpt);
+      }
+
+      const imagePath = safeImagePath(data.image);
+      if (imagePath) {
+        const img = document.createElement("img");
+        img.src = SITE_ORIGIN + "/" + imagePath;
+        img.alt = data.title ? `Image for ${data.title}` : "Journal image";
+        img.addEventListener("load", reportHeight);
+        article.appendChild(img);
+      }
+
+      const content = document.createElement("p");
+      content.textContent = escapeText(data.content);
+      article.appendChild(content);
+
+      const footer = document.createElement("div");
+      footer.className = "log-footer";
+      footer.textContent = "[ JOURNAL / AEGILL ]";
+      article.appendChild(footer);
+
+      journalView.appendChild(article);
+    });
+  }
+
+  async function loadPublishedJournal() {
+    if (!db) return;
+    try {
+      const q = query(collection(db, "posts"), where("published", "==", true), orderBy("createdAt", "desc"));
+      const snapshot = await getDocs(q);
+      renderJournal(snapshot.docs);
+    } catch (error) {
+      console.error("[Aegill] Journal load failed:", error);
+      journalView.innerHTML = '<div class="journal-loading">JOURNAL: FIRESTORE CONNECTION FAILED.</div>';
+    }
+  }
+
+  async function loadAdminPosts() {
+    if (!db || !currentUser) return;
+    adminPostList.innerHTML = '<div class="admin-empty">LOADING POSTS...</div>';
+    try {
+      const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        adminPostList.innerHTML = '<div class="admin-empty">NO POSTS YET.</div>';
+        return;
+      }
+      adminPostList.innerHTML = "";
+      snapshot.docs.forEach((item) => {
+        const data = item.data();
+        const row = document.createElement("div");
+        row.className = "admin-post-row";
+        const title = document.createElement("h4");
+        title.textContent = data.title || "UNTITLED";
+        const meta = document.createElement("div");
+        meta.className = "admin-post-meta";
+        meta.textContent = `${data.published ? "PUBLISHED" : "DRAFT"} // ${formatDate(data.createdAt)}`;
+        const actions = document.createElement("div");
+        actions.className = "admin-post-actions";
+        const edit = document.createElement("button");
+        edit.type = "button"; edit.textContent = "EDIT";
+        edit.addEventListener("click", () => editPost(item));
+        const del = document.createElement("button");
+        del.type = "button"; del.textContent = "DELETE";
+        del.addEventListener("click", () => removePost(item.id));
+        actions.append(edit, del);
+        row.append(title, meta, actions);
+        adminPostList.appendChild(row);
+      });
+    } catch (error) {
+      console.error("[Aegill] Admin post load failed:", error);
+      adminPostList.innerHTML = '<div class="admin-empty admin-error">FAILED TO LOAD POSTS.</div>';
+    }
+  }
+
+  function editPost(item) {
+    const data = item.data();
+    editingPost = item;
+    postId.value = item.id;
+    postTitle.value = data.title || "";
+    postExcerpt.value = data.excerpt || "";
+    postContent.value = data.content || "";
+    postImage.value = data.image || "";
+    postPublished.checked = data.published === true;
+    adminEditorTitle.textContent = "EDIT JOURNAL ENTRY";
+    postDelete.hidden = false;
+    setStatus(`EDITOR: ${item.id}`);
+  }
+
+  async function removePost(id) {
+    if (!db || !currentUser) return;
+    if (!confirm("DELETE THIS JOURNAL ENTRY?")) return;
+    try {
+      await deleteDoc(doc(db, "posts", id));
+      if (editingPost && editingPost.id === id) clearEditor();
+      setStatus("POST DELETED", "success");
+      await loadAdminPosts();
+      await loadPublishedJournal();
+    } catch (error) {
+      console.error("[Aegill] Delete failed:", error);
+      setStatus("DELETE FAILED", "error");
+    }
+  }
+
+  async function savePost(event) {
+    event.preventDefault();
+    if (!db || !currentUser) { setStatus("NOT AUTHENTICATED", "error"); return; }
+
+    const imagePath = String(postImage.value || "").trim();
+    if (imagePath && !safeImagePath(imagePath)) {
+      setStatus("IMAGE PATH MUST START WITH images/", "error");
+      return;
+    }
+    const payload = {
+      title: postTitle.value.trim(),
+      excerpt: postExcerpt.value.trim(),
+      content: postContent.value.trim(),
+      image: imagePath,
+      published: postPublished.checked,
+      updatedAt: serverTimestamp()
+    };
+    if (!payload.title || !payload.content) {
+      setStatus("TITLE AND CONTENT ARE REQUIRED", "error");
+      return;
+    }
+    try {
+      if (editingPost) {
+        await updateDoc(doc(db, "posts", editingPost.id), payload);
+        setStatus("POST UPDATED", "success");
+      } else {
+        await addDoc(collection(db, "posts"), { ...payload, createdAt: serverTimestamp(), authorUid: currentUser.uid });
+        setStatus("POST CREATED", "success");
+      }
+      clearEditor();
+      await loadAdminPosts();
+      await loadPublishedJournal();
+    } catch (error) {
+      console.error("[Aegill] Save failed:", error);
+      setStatus("SAVE FAILED: " + (error.code || "UNKNOWN"), "error");
+    }
+  }
+
+  function lockAdmin() {
+    currentUser = null;
+    adminLogin.hidden = false;
+    adminDashboard.hidden = true;
+    setAuthStatus("AUTHENTICATION REQUIRED");
+  }
+
+  async function handleAuth(user) {
+    if (!user) { lockAdmin(); return; }
+    if (user.uid !== ADMIN_UID) {
+      setAuthStatus("ACCESS DENIED — NOT ADMIN", "error");
+      await signOut(auth);
+      lockAdmin();
+      return;
+    }
+    currentUser = user;
+    adminLogin.hidden = true;
+    adminDashboard.hidden = false;
+    adminUserLabel.textContent = `${user.email || "ADMIN"} // UID: ${user.uid}`;
+    setAuthStatus("FIREBASE AUTH: ONLINE", "success");
+    await loadAdminPosts();
+    await loadPublishedJournal();
+  }
+
+  adminLoginForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      setAuthStatus("AUTHENTICATING...");
+      await signInWithEmailAndPassword(auth, $("adminEmail").value.trim(), $("adminPassword").value);
+    } catch (error) {
+      console.error("[Aegill] Login failed:", error);
+      setAuthStatus("LOGIN FAILED: " + (error.code || "UNKNOWN"), "error");
+    }
+  });
+  adminLogout?.addEventListener("click", async () => { if (auth) await signOut(auth); });
+  postForm?.addEventListener("submit", savePost);
+  postNew?.addEventListener("click", clearEditor);
+  postDelete?.addEventListener("click", () => editingPost && removePost(editingPost.id));
+
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  onAuthStateChanged(auth, handleAuth);
+  if (!isAdminMode) loadPublishedJournal();
+</script>
+</body>
+</html>
