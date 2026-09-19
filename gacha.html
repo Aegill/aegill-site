@@ -196,20 +196,10 @@
 
   let state = loadState();
 
-const $ = (id) => document.getElementById(id);
+  const $ = (id) => document.getElementById(id);
+  const balanceValue = $("balanceValue");
+  const hudNote = $("hudNote");
 
-function reportHeight() {
-  parent.postMessage({
-    source: "aegill-embed",
-    height: document.body.scrollHeight
-  }, "*");
-}
-
-new ResizeObserver(reportHeight).observe(document.body);
-window.addEventListener("load", reportHeight);
-
-const balanceValue = $("balanceValue");
-const hudNote = $("hudNote");
   /* ============================================================
      SHARED BALANCE (Firestore users/{uid}.balance — same doc the
      multiplayer blackjack table reads and writes).
@@ -393,28 +383,10 @@ const hudNote = $("hudNote");
      AUTO HEIGHT — iframe embed
      ============================================================ */
 function reportHeight() {
-  const height = Math.max(
-    document.body.scrollHeight,
-    document.documentElement.scrollHeight
-  );
-
-  parent.postMessage({
-    source: "aegill-embed",
-    height
-  }, "*");
-}
-
-const resizeObserver = new ResizeObserver(reportHeight);
-
-resizeObserver.observe(document.body);
-resizeObserver.observe(document.documentElement);
-
-window.addEventListener("load", reportHeight);
-
-document.addEventListener("DOMContentLoaded", () => {
-  reportHeight();
-
-  requestAnimationFrame(reportHeight);
+    parent.postMessage({ source: "aegill-embed", height: document.body.scrollHeight }, "*");
+  }
+  new ResizeObserver(reportHeight).observe(document.body);
+  window.addEventListener("load", reportHeight);
 })();
 </script>
 </body>
