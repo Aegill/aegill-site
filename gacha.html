@@ -41,6 +41,29 @@
   .kicker{font-size:11px;letter-spacing:.16em;color:var(--dim);margin-bottom:6px}
   .title{font-size:20px;margin-bottom:16px}
 
+  /* ---- blackjack ---- */
+  .bj-table{display:grid;gap:18px}
+  .bj-hand-label{font-size:10px;letter-spacing:.1em;color:var(--dim);margin-bottom:8px}
+  .bj-cards{display:flex;gap:8px;flex-wrap:wrap;min-height:74px}
+  .playing-card{width:48px;height:68px;border:1px solid var(--border-lt);border-radius:4px;
+    background:#111;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}
+  .playing-card.red{color:#ff8080}
+  .playing-card.black{color:#eee}
+  .playing-card.hidden{background:repeating-linear-gradient(45deg,#161616,#161616 4px,#0b0b0b 4px,#0b0b0b 8px)}
+  .bj-score{font-size:12px;color:var(--dim);margin-top:6px}
+  .bj-controls{display:flex;flex-wrap:wrap;gap:9px;margin-top:18px;align-items:center}
+  .bj-bet{display:flex;align-items:center;gap:8px}
+  .bj-bet input{width:90px;border:1px solid var(--border-lt);background:#050505;color:#eee;padding:9px;font:12px "Space Mono",monospace}
+  .btn{border:1px solid var(--border-lt);background:#0b0b0b;color:#eee;padding:10px 14px;
+    font:10px "Space Mono",monospace;letter-spacing:.08em;cursor:pointer}
+  .btn:hover:not(:disabled){border-color:#aaa;background:#151515}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+  .btn.primary{background:#eee;color:#050505;border-color:#eee}
+  .bj-status{margin-top:16px;padding:10px;border:1px solid var(--border);font-size:11px;color:var(--dim)}
+  .bj-status.win{color:#9ff0b0;border-color:#2f5c3d}
+  .bj-status.lose{color:#ff8f8f;border-color:#663838}
+  .bj-status.push{color:#ffd98f;border-color:#5c4e2f}
+
   /* ---- gacha ---- */
   .gacha-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px}
   .pull-reveal{display:flex;flex-wrap:wrap;gap:16px;min-height:180px;align-items:flex-start}
@@ -96,8 +119,43 @@
   </div>
 
   <div class="tabs">
+    <button class="tab-btn active" data-view="blackjack">BLACKJACK</button>
     <button class="tab-btn" data-view="gacha">GACHA</button>
     <button class="tab-btn" data-view="collection">COLLECTION</button>
+  </div>
+
+  <!-- ================= BLACKJACK ================= -->
+  <div class="view active" id="view-blackjack">
+    <div class="panel-box">
+      <div class="kicker">// FARM CURRENCY</div>
+      <h3 class="title">BLACKJACK</h3>
+
+      <div class="bj-table">
+        <div>
+          <div class="bj-hand-label">DEALER</div>
+          <div class="bj-cards" id="dealerCards"></div>
+          <div class="bj-score" id="dealerScore">SCORE: —</div>
+        </div>
+        <div>
+          <div class="bj-hand-label">YOU</div>
+          <div class="bj-cards" id="playerCards"></div>
+          <div class="bj-score" id="playerScore">SCORE: —</div>
+        </div>
+      </div>
+
+      <div class="bj-controls">
+        <div class="bj-bet">
+          <label for="betInput" style="font-size:10px;color:var(--dim)">BET</label>
+          <input id="betInput" type="number" min="10" step="10" value="50">
+        </div>
+        <button class="btn primary" id="dealBtn">DEAL</button>
+        <button class="btn" id="hitBtn" disabled>HIT</button>
+        <button class="btn" id="standBtn" disabled>STAND</button>
+        <button class="btn" id="doubleBtn" disabled>DOUBLE</button>
+      </div>
+
+      <div class="bj-status" id="bjStatus">PLACE A BET AND DEAL.</div>
+    </div>
   </div>
 
   <!-- ================= GACHA ================= -->
@@ -374,19 +432,145 @@
   $("cost10").textContent = Math.round(PULL10_COST);
 
   /* ============================================================
+     BLACKJACK
+     ============================================================ */
+  const SUITS = ["♠", "♥", "♦", "♣"];
+  const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+
+  let deck = [];
+  let dealerHand = [];
+  let playerHand = [];
+  let currentBet = 0;
+  let roundActive = false;
+
+  function freshDeck() {
+    const d = [];
+    for (const s of SUITS) for (const r of RANKS) d.push({ rank: r, suit: s });
+    for (let i = d.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [d[i], d[j]] = [d[j], d[i]];
+    }
+    return d;
+  }
+
+  function cardValue(card) {
+    if (card.rank === "A") return 11;
+    if (["J", "Q", "K"].includes(card.rank)) return 10;
+    return parseInt(card.rank, 10);
+  }
+
+  function handScore(hand) {
+    let score = hand.reduce((sum, c) => sum + cardValue(c), 0);
+    let aces = hand.filter((c) => c.rank === "A").length;
+    while (score > 21 && aces > 0) { score -= 10; aces--; }
+    return score;
+  }
+
+  function renderCardEl(card, hidden) {
+    const el = document.createElement("div");
+    el.className = "playing-card " + (hidden ? "hidden" : (["♥", "♦"].includes(card.suit) ? "red" : "black"));
+    el.textContent = hidden ? "" : card.rank + card.suit;
+    return el;
+  }
+
+  function renderTable(revealDealer) {
+    const dealerEl = $("dealerCards");
+    const playerEl = $("playerCards");
+    dealerEl.innerHTML = "";
+    playerEl.innerHTML = "";
+
+    dealerHand.forEach((c, i) => dealerEl.appendChild(renderCardEl(c, i === 0 && !revealDealer)));
+    playerHand.forEach((c) => playerEl.appendChild(renderCardEl(c, false)));
+
+    $("dealerScore").textContent = "SCORE: " + (revealDealer ? handScore(dealerHand) : "?");
+    $("playerScore").textContent = "SCORE: " + handScore(playerHand);
+  }
+
+  function setStatus(text, type) {
+    const el = $("bjStatus");
+    el.textContent = text;
+    el.className = "bj-status" + (type ? " " + type : "");
+  }
+
+  function setRoundControls(active) {
+    $("hitBtn").disabled = !active;
+    $("standBtn").disabled = !active;
+    $("doubleBtn").disabled = !active || myBalance < currentBet || playerHand.length !== 2;
+    $("dealBtn").disabled = active;
+    $("betInput").disabled = active;
+  }
+
+  function endRound(result) {
+    roundActive = false;
+    renderTable(true);
+    if (result === "win") { addEarnings(currentBet * 2); setStatus("YOU WIN — +" + currentBet + " SHARDS", "win"); }
+    else if (result === "blackjack") { addEarnings(Math.round(currentBet * 2.5)); setStatus("BLACKJACK! — +" + Math.round(currentBet * 1.5) + " SHARDS", "win"); }
+    else if (result === "push") { addEarnings(currentBet); setStatus("PUSH — BET RETURNED", "push"); }
+    else { setStatus("DEALER WINS — -" + currentBet + " SHARDS", "lose"); }
+    setRoundControls(false);
+  }
+
+  function dealerPlay() {
+    while (handScore(dealerHand) < 17) dealerHand.push(deck.pop());
+    const playerScore = handScore(playerHand);
+    const dealerScore = handScore(dealerHand);
+    if (dealerScore > 21 || playerScore > dealerScore) endRound("win");
+    else if (playerScore === dealerScore) endRound("push");
+    else endRound("lose");
+  }
+
+  $("dealBtn").addEventListener("click", async () => {
+    if (!uid) { alert("STILL CONNECTING — TRY AGAIN IN A MOMENT."); return; }
+    const bet = parseInt($("betInput").value, 10);
+    if (!bet || bet < 10) { alert("MINIMUM BET IS 10."); return; }
+    const ok = await trySpend(bet);
+    if (!ok) { alert("NOT ENOUGH VOID SHARDS."); return; }
+
+    currentBet = bet;
+    deck = freshDeck();
+    playerHand = [deck.pop(), deck.pop()];
+    dealerHand = [deck.pop(), deck.pop()];
+    roundActive = true;
+    renderTable(false);
+    setStatus("YOUR MOVE.");
+    setRoundControls(true);
+
+    if (handScore(playerHand) === 21) {
+      renderTable(true);
+      endRound("blackjack");
+    }
+  });
+
+  $("hitBtn").addEventListener("click", () => {
+    if (!roundActive) return;
+    playerHand.push(deck.pop());
+    renderTable(false);
+    $("doubleBtn").disabled = true;
+    if (handScore(playerHand) > 21) endRound("lose");
+  });
+
+  $("standBtn").addEventListener("click", () => {
+    if (!roundActive) return;
+    dealerPlay();
+  });
+
+  $("doubleBtn").addEventListener("click", async () => {
+    if (!roundActive || playerHand.length !== 2) return;
+    const ok = await trySpend(currentBet);
+    if (!ok) { alert("NOT ENOUGH VOID SHARDS TO DOUBLE."); return; }
+    currentBet *= 2;
+    playerHand.push(deck.pop());
+    renderTable(false);
+    if (handScore(playerHand) > 21) { endRound("lose"); return; }
+    dealerPlay();
+  });
+
+  /* ============================================================
      INIT
      ============================================================ */
   renderTable(false);
   setRoundControls(false);
   renderCollection();
-  /* ============================================================
-     AUTO HEIGHT — iframe embed
-     ============================================================ */
-function reportHeight() {
-    parent.postMessage({ source: "aegill-embed", height: document.body.scrollHeight }, "*");
-  }
-  new ResizeObserver(reportHeight).observe(document.body);
-  window.addEventListener("load", reportHeight);
 })();
 </script>
 </body>
