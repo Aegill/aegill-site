@@ -260,6 +260,7 @@
       }
       tableState = snap.data();
       renderTable();
+      settleMyself();
     });
   }
 
@@ -269,6 +270,7 @@
       snap.forEach((d) => { players[d.id] = d.data(); });
       myPlayerState = players[uid] || null;
       renderPlayers(players);
+      settleMyself();
     });
   }
 
@@ -444,7 +446,9 @@
   }
 
   // Every connected client nudges the dealer forward — idempotent via transactions,
-  // so it's safe for multiple clients to attempt this at once.
+  // so it's safe for multiple clients to attempt this at once. This step only
+  // touches the shared table doc (draws a card, or flips the phase once the
+  // dealer stands) — it never writes another player's balance.
   onSnapshot(tableRef, async (snap) => {
     if (!snap.exists()) return;
     const table = snap.data();
@@ -459,21 +463,38 @@
       if (score < 17) {
         const card = cur.deck[cur.deckIndex];
         t.update(tableRef, { dealerHand: [...cur.dealerHand, card], deckIndex: cur.deckIndex + 1 });
-        return;
+      } else {
+        t.update(tableRef, { phase: "results" });
       }
+    }).catch((e) => console.warn("[BJ] dealer step skipped (likely race, harmless)", e));
+  });
 
-      // dealer is done — settle the round
-      const dealerScore = handScore(cur.dealerHand);
-      for (const pid of cur.turnOrder) {
-        const pRef = playersCol(pid);
+  // Each player settles their OWN payout once the round hits "results" — this
+  // is what keeps the users/{uid} write rule at "owner only" instead of
+  // needing to open it up to any signed-in user.
+  const UNSETTLED_STATUSES = ["playing", "stood", "bust"];
+  async function settleMyself() {
+    if (!tableState || tableState.phase !== "results") return;
+    if (!myPlayerState || !UNSETTLED_STATUSES.includes(myPlayerState.status)) return;
+
+    try {
+      await runTransaction(db, async (t) => {
+        const pRef = playersCol(uid);
+        const userRef = doc(db, "users", uid);
         const pSnap = await t.get(pRef);
-        const p = pSnap.data();
-        const userRef = doc(db, "users", pid);
+        const tSnap = await t.get(tableRef);
         const userSnap = await t.get(userRef);
-        const balance = userSnap.data().balance || 0;
+
+        const p = pSnap.data();
+        const table = tSnap.data();
+        if (!p || !UNSETTLED_STATUSES.includes(p.status)) return; // already settled
+        if (table.phase !== "results") return;
+
+        const balance = userSnap.exists() ? (userSnap.data().balance || 0) : 0;
+        const dealerScore = handScore(table.dealerHand || []);
+        const pScore = handScore(p.hand);
 
         let result, delta;
-        const pScore = handScore(p.hand);
         if (p.status === "bust") { result = "lost"; delta = 0; }
         else if (pScore === 21 && p.hand.length === 2) { result = "blackjack"; delta = Math.round(p.bet * 2.5); }
         else if (dealerScore > 21 || pScore > dealerScore) { result = "won"; delta = p.bet * 2; }
@@ -482,10 +503,11 @@
 
         t.update(userRef, { balance: balance + delta });
         t.update(pRef, { status: result });
-      }
-      t.update(tableRef, { phase: "results" });
-    }).catch((e) => console.warn("[BJ] dealer step skipped (likely race, harmless)", e));
-  });
+      });
+    } catch (e) {
+      console.warn("[BJ] self-settle skipped (likely already settled)", e);
+    }
+  }
 
   $("newRoundBtn").addEventListener("click", async () => {
     await runTransaction(db, async (t) => {
