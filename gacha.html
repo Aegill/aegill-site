@@ -305,7 +305,6 @@
   new ResizeObserver(reportHeight).observe(document.body);
   window.addEventListener("load", reportHeight);
   window.addEventListener("resize", reportHeight);
-  }
   /* ============================================================
      SHARED BALANCE (Firestore users/{uid}.balance — same doc the
      multiplayer blackjack table reads and writes).
@@ -484,39 +483,8 @@
    /* ============================================================
      INIT
      ============================================================ */
-
-  // Автоматически подстраиваем высоту iframe под содержимое страницы
-  function reportHeight() {
-    const height = Math.max(
-      document.body.scrollHeight,
-      document.documentElement.scrollHeight
-    );
-
-    window.parent.postMessage(
-      {
-        source: "aegill-gacha",
-        height: height
-      },
-      "*"
-    );
-  }
-
-  window.addEventListener("load", reportHeight);
-  window.addEventListener("resize", reportHeight);
-
-  if (window.ResizeObserver) {
-    new ResizeObserver(reportHeight).observe(document.body);
-  }
-
-  document.querySelectorAll(".tab-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      setTimeout(reportHeight, 50);
-    });
-  });
-
-  renderTable(false);
-  setRoundControls(false);
   renderCollection();
+  reportHeight();
 })();
 </script>
 </body>
