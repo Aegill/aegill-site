@@ -293,28 +293,18 @@
   const $ = (id) => document.getElementById(id);
   const balanceValue = $("balanceValue");
   const hudNote = $("hudNote");
-  
-  // Автоматическая высота iframe на родительском сайте
-  function reportHeight() {
-    const height = Math.max(
-      document.body.scrollHeight,
-      document.documentElement.scrollHeight
-    );
 
-    window.parent.postMessage(
-      {
-        source: "aegill-gacha",
-        height: height
-      },
-      "https://aegill.neocities.org"
-    );
+  // Сообщаем родительскому сайту фактическую высоту Gacha
+  function reportHeight() {
+    parent.postMessage({
+      source: "aegill-embed",
+      height: document.body.scrollHeight
+    }, "*");
   }
 
+  new ResizeObserver(reportHeight).observe(document.body);
   window.addEventListener("load", reportHeight);
   window.addEventListener("resize", reportHeight);
-
-  if (window.ResizeObserver) {
-    new ResizeObserver(reportHeight).observe(document.body);
   }
   /* ============================================================
      SHARED BALANCE (Firestore users/{uid}.balance — same doc the
