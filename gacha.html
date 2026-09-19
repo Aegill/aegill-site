@@ -41,6 +41,29 @@
   .kicker{font-size:11px;letter-spacing:.16em;color:var(--dim);margin-bottom:6px}
   .title{font-size:20px;margin-bottom:16px}
 
+  /* ---- blackjack ---- */
+  .bj-table{display:grid;gap:18px}
+  .bj-hand-label{font-size:10px;letter-spacing:.1em;color:var(--dim);margin-bottom:8px}
+  .bj-cards{display:flex;gap:8px;flex-wrap:wrap;min-height:74px}
+  .playing-card{width:48px;height:68px;border:1px solid var(--border-lt);border-radius:4px;
+    background:#111;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}
+  .playing-card.red{color:#ff8080}
+  .playing-card.black{color:#eee}
+  .playing-card.hidden{background:repeating-linear-gradient(45deg,#161616,#161616 4px,#0b0b0b 4px,#0b0b0b 8px)}
+  .bj-score{font-size:12px;color:var(--dim);margin-top:6px}
+  .bj-controls{display:flex;flex-wrap:wrap;gap:9px;margin-top:18px;align-items:center}
+  .bj-bet{display:flex;align-items:center;gap:8px}
+  .bj-bet input{width:90px;border:1px solid var(--border-lt);background:#050505;color:#eee;padding:9px;font:12px "Space Mono",monospace}
+  .btn{border:1px solid var(--border-lt);background:#0b0b0b;color:#eee;padding:10px 14px;
+    font:10px "Space Mono",monospace;letter-spacing:.08em;cursor:pointer}
+  .btn:hover:not(:disabled){border-color:#aaa;background:#151515}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+  .btn.primary{background:#eee;color:#050505;border-color:#eee}
+  .bj-status{margin-top:16px;padding:10px;border:1px solid var(--border);font-size:11px;color:var(--dim)}
+  .bj-status.win{color:#9ff0b0;border-color:#2f5c3d}
+  .bj-status.lose{color:#ff8f8f;border-color:#663838}
+  .bj-status.push{color:#ffd98f;border-color:#5c4e2f}
+
   /* ---- gacha ---- */
   .gacha-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px}
   .pull-reveal{display:flex;flex-wrap:wrap;gap:16px;min-height:180px;align-items:flex-start}
