@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#050505">
+<title>Aegill // GACHA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#050505; --panel:#0b0b0b; --border:#292929; --border-lt:#444;
+    --text:#eee; --dim:#888; --dim2:#666;
+    --common:#9a9a9a; --rare:#6fb3ff; --epic:#c07bff; --legendary:#ffcc55;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Space Mono",monospace;min-height:100vh}
+  h1,h2,h3{font-family:"Unbounded",sans-serif;margin:0}
+  .shell{max-width:1100px;margin:0 auto;padding:26px 20px 60px}
+
+  .window-bar{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);
+    padding:10px 16px;font-size:11px;letter-spacing:.08em;color:var(--dim);margin-bottom:18px}
+  .window-bar b{color:var(--text)}
+
+  .hud{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+    border:1px solid var(--border);background:rgba(255,255,255,.02);padding:14px 18px;margin-bottom:20px}
+  .hud .balance{font-family:"Unbounded",sans-serif;font-size:20px}
+  .hud .balance span{color:var(--dim);font-family:"Space Mono",monospace;font-size:11px;display:block;margin-bottom:4px;letter-spacing:.1em}
+
+  .tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+  .tab-btn{border:1px solid var(--border);background:var(--panel);color:var(--dim);padding:9px 16px;
+    font:10px "Space Mono",monospace;letter-spacing:.1em;cursor:pointer}
+  .tab-btn:hover{color:var(--text);border-color:var(--border-lt)}
+  .tab-btn.active{background:#eee;color:#050505;border-color:#eee}
+
+  .view{display:none}
+  .view.active{display:block}
+
+  .panel-box{border:1px solid var(--border);background:rgba(8,8,8,.6);padding:22px}
+  .kicker{font-size:11px;letter-spacing:.16em;color:var(--dim);margin-bottom:6px}
+  .title{font-size:20px;margin-bottom:16px}
+
+  /* ---- blackjack ---- */
+  .bj-table{display:grid;gap:18px}
+  .bj-hand-label{font-size:10px;letter-spacing:.1em;color:var(--dim);margin-bottom:8px}
+  .bj-cards{display:flex;gap:8px;flex-wrap:wrap;min-height:74px}
+  .playing-card{width:48px;height:68px;border:1px solid var(--border-lt);border-radius:4px;
+    background:#111;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}
+  .playing-card.red{color:#ff8080}
+  .playing-card.black{color:#eee}
+  .playing-card.hidden{background:repeating-linear-gradient(45deg,#161616,#161616 4px,#0b0b0b 4px,#0b0b0b 8px)}
+  .bj-score{font-size:12px;color:var(--dim);margin-top:6px}
+  .bj-controls{display:flex;flex-wrap:wrap;gap:9px;margin-top:18px;align-items:center}
+  .bj-bet{display:flex;align-items:center;gap:8px}
+  .bj-bet input{width:90px;border:1px solid var(--border-lt);background:#050505;color:#eee;padding:9px;font:12px "Space Mono",monospace}
+  .btn{border:1px solid var(--border-lt);background:#0b0b0b;color:#eee;padding:10px 14px;
+    font:10px "Space Mono",monospace;letter-spacing:.08em;cursor:pointer}
+  .btn:hover:not(:disabled){border-color:#aaa;background:#151515}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+  .btn.primary{background:#eee;color:#050505;border-color:#eee}
+  .bj-status{margin-top:16px;padding:10px;border:1px solid var(--border);font-size:11px;color:var(--dim)}
+  .bj-status.win{color:#9ff0b0;border-color:#2f5c3d}
+  .bj-status.lose{color:#ff8f8f;border-color:#663838}
+  .bj-status.push{color:#ffd98f;border-color:#5c4e2f}
+
+  /* ---- gacha ---- */
+  .gacha-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px}
+  .pull-reveal{display:flex;flex-wrap:wrap;gap:16px;min-height:180px;align-items:flex-start}
+  .gacha-empty{color:var(--dim2);font-size:11px;padding:30px 0;width:100%;text-align:center;border:1px dashed var(--border)}
+
+  /* ---- card (shared between reveal + collection) ---- */
+  .card{width:140px;border:1px solid var(--border);background:#0a0a0a;padding:10px;text-align:center;position:relative}
+  .card.locked{opacity:.32;filter:grayscale(1)}
+  .card-frame{width:100%;aspect-ratio:3/4;border:1px solid var(--border-lt);background:#111;
+    display:flex;align-items:center;justify-content:center;margin-bottom:8px;overflow:hidden;position:relative}
+  .card-frame img{width:100%;height:100%;object-fit:cover}
+  .card-name{font-size:11px;margin-bottom:4px}
+  .card-rarity{font-size:9px;letter-spacing:.1em;text-transform:uppercase}
+  .card-level{font-size:9px;color:var(--dim);margin-top:4px}
+
+  .rarity-common .card-rarity{color:var(--common)}
+  .rarity-rare .card-rarity{color:var(--rare)}
+  .rarity-epic .card-rarity{color:var(--epic)}
+  .rarity-legendary .card-rarity{color:var(--legendary)}
+  .rarity-common .card-frame{border-color:var(--common)}
+  .rarity-rare .card-frame{border-color:var(--rare)}
+  .rarity-epic .card-frame{border-color:var(--epic)}
+  .rarity-legendary .card-frame{border-color:var(--legendary)}
+
+  /*
+    EXTENSION POINT — hook your own animated frames / effects here.
+    Every card element gets both a rarity class (rarity-common / rarity-rare /
+    rarity-epic / rarity-legendary) and a level class (frame-lvl-1 ... frame-lvl-5)
+    on its .card-frame. e.g.:
+
+    .frame-lvl-3::after { content:""; position:absolute; inset:0;
+      background:url("images/gacha/fx/lvl3-shimmer.png"); animation: shimmer 2s linear infinite; }
+  */
+  .frame-lvl-1{}
+  .frame-lvl-2{}
+  .frame-lvl-3{}
+  .frame-lvl-4{}
+  .frame-lvl-5{}
+
+  .collection-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px}
+
+  @media(max-width:640px){ .hud{flex-direction:column;align-items:flex-start} }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="window-bar"><span>SYS://AEGILL — <b>GACHA.EXE</b></span><span>v0.1</span></div>
+
+  <div class="hud">
+    <div class="balance"><span>VOID SHARDS</span><span id="balanceValue">—</span></div>
+    <div style="font-size:10px;color:var(--dim2)" id="hudNote">CONNECTING...</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-view="blackjack">BLACKJACK</button>
+    <button class="tab-btn" data-view="gacha">GACHA</button>
+    <button class="tab-btn" data-view="collection">COLLECTION</button>
+  </div>
+
+  <!-- ================= BLACKJACK ================= -->
+  <div class="view active" id="view-blackjack">
+    <div class="panel-box">
+      <div class="kicker">// FARM CURRENCY</div>
+      <h3 class="title">BLACKJACK</h3>
+
+      <div class="bj-table">
+        <div>
+          <div class="bj-hand-label">DEALER</div>
+          <div class="bj-cards" id="dealerCards"></div>
+          <div class="bj-score" id="dealerScore">SCORE: —</div>
+        </div>
+        <div>
+          <div class="bj-hand-label">YOU</div>
+          <div class="bj-cards" id="playerCards"></div>
+          <div class="bj-score" id="playerScore">SCORE: —</div>
+        </div>
+      </div>
+
+      <div class="bj-controls">
+        <div class="bj-bet">
+          <label for="betInput" style="font-size:10px;color:var(--dim)">BET</label>
+          <input id="betInput" type="number" min="10" step="10" value="50">
+        </div>
+        <button class="btn primary" id="dealBtn">DEAL</button>
+        <button class="btn" id="hitBtn" disabled>HIT</button>
+        <button class="btn" id="standBtn" disabled>STAND</button>
+        <button class="btn" id="doubleBtn" disabled>DOUBLE</button>
+      </div>
+
+      <div class="bj-status" id="bjStatus">PLACE A BET AND DEAL.</div>
+    </div>
+  </div>
+
+  <!-- ================= GACHA ================= -->
+  <div class="view" id="view-gacha">
+    <div class="panel-box">
+      <div class="kicker">// SUMMON</div>
+      <h3 class="title">GACHA</h3>
+
+      <div class="gacha-actions">
+        <button class="btn primary" id="pull1Btn">PULL x1 — <span id="cost1">100</span> SHARDS</button>
+        <button class="btn" id="pull10Btn">PULL x10 — <span id="cost10">1000</span> SHARDS</button>
+      </div>
+
+      <div class="pull-reveal" id="pullReveal">
+        <div class="gacha-empty">NO PULLS YET.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= COLLECTION ================= -->
+  <div class="view" id="view-collection">
+    <div class="panel-box">
+      <div class="kicker">// OWNED</div>
+      <h3 class="title">COLLECTION</h3>
+      <div class="collection-grid" id="collectionGrid"></div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+  /* Same Firebase project as the rest of the site — this is what makes the
+     balance shared with the multiplayer blackjack table. */
+  const firebaseConfig = {
+    apiKey: "AIzaSyBjBrzjrdtpx_qdpHMR6SMTthU5vI1Zenk",
+    authDomain: "test-abb3e.firebaseapp.com",
+    projectId: "test-abb3e",
+    storageBucket: "test-abb3e.firebasestorage.app",
+    messagingSenderId: "685916701163",
+    appId: "1:685916701163:web:1ab7dca6859162d5c499ae"
+  };
+  const fbApp = initializeApp(firebaseConfig);
+  const auth = getAuth(fbApp);
+  const db = getFirestore(fbApp);
+
+(function () {
+  "use strict";
+
+  /* ============================================================
+     CONFIG — edit freely.
+     ============================================================ */
+  const STORAGE_KEY = "aegill_gacha_save_v1"; // card collection only now — balance lives in Firestore
+  const PULL_COST = 100;
+  const PULL10_COST = PULL_COST * 10 * 0.9; // small discount for x10, tweak as you like
+  const MAX_CARD_LEVEL = 5;
+  const STARTING_BALANCE = 500;
+
+  // Replace names / images / rarities with your real characters.
+  // image: path relative to wherever you host this file (e.g. images/gacha/xxx.png).
+  // Leave image empty ("") to show a placeholder box instead.
+  const CARD_POOL = [
+    { id: "c_common_01", name: "Wanderer",   rarity: "common",    image: "" },
+    { id: "c_common_02", name: "Sentinel",   rarity: "common",    image: "" },
+    { id: "c_common_03", name: "Drifter",    rarity: "common",    image: "" },
+    { id: "c_rare_01",   name: "Nightglass", rarity: "rare",      image: "" },
+    { id: "c_rare_02",   name: "Static",     rarity: "rare",      image: "" },
+    { id: "c_epic_01",   name: "Voidwoven",  rarity: "epic",      image: "" },
+    { id: "c_epic_02",   name: "Aegis",      rarity: "epic",      image: "" },
+    { id: "c_legend_01", name: "Aegill",     rarity: "legendary", image: "" }
+  ];
+
+  const RARITY_WEIGHTS = { common: 60, rare: 25, epic: 12, legendary: 3 };
+  const RARITY_LABEL = { common: "COMMON", rare: "RARE", epic: "EPIC", legendary: "LEGENDARY" };
+
+  /* ============================================================
+     CARD COLLECTION — still localStorage, per-browser only.
+     (The balance below is the shared, cross-device/cross-game part.)
+     ============================================================ */
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) throw new Error("no save");
+      const parsed = JSON.parse(raw);
+      return { cards: parsed.cards || {} };
+    } catch {
+      return { cards: {} }; // cards: { [cardId]: level }
+    }
+  }
+  function saveState() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { console.warn("[Gacha] save failed", e); }
+  }
+
+  let state = loadState();
+
+  const $ = (id) => document.getElementById(id);
+  const balanceValue = $("balanceValue");
+  const hudNote = $("hudNote");
+
+  /* ============================================================
+     SHARED BALANCE (Firestore users/{uid}.balance — same doc the
+     multiplayer blackjack table reads and writes).
+     ============================================================ */
+  let uid = null;
+  let myBalance = 0;
+  let balanceReady = false;
+
+  function userRef() { return doc(db, "users", uid); }
+
+  async function ensureUserDoc() {
+    const ref = userRef();
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, { balance: STARTING_BALANCE, name: "GUEST" });
+    }
+  }
+
+  function watchBalance() {
+    onSnapshot(userRef(), (snap) => {
+      myBalance = snap.exists() ? (snap.data().balance || 0) : 0;
+      balanceReady = true;
+      renderBalance();
+      setRoundControls(roundActive); // refresh double-button afford check
+    });
+  }
+
+  function renderBalance() {
+    balanceValue.textContent = Math.floor(myBalance);
+  }
+
+  // Atomic spend: fails cleanly if balance is insufficient (handles two tabs
+  // / two games spending at the same moment without going negative).
+  async function trySpend(amount) {
+    try {
+      await runTransaction(db, async (t) => {
+        const snap = await t.get(userRef());
+        const balance = snap.exists() ? (snap.data().balance || 0) : 0;
+        if (balance < amount) throw new Error("INSUFFICIENT");
+        t.update(userRef(), { balance: balance - amount });
+      });
+      return true;
+    } catch (e) {
+      if (e.message !== "INSUFFICIENT") console.error("[Gacha] spend failed", e);
+      return false;
+    }
+  }
+
+  async function addEarnings(amount) {
+    try {
+      await runTransaction(db, async (t) => {
+        const snap = await t.get(userRef());
+        const balance = snap.exists() ? (snap.data().balance || 0) : 0;
+        t.update(userRef(), { balance: balance + amount });
+      });
+    } catch (e) {
+      console.error("[Gacha] earn failed", e);
+    }
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { signInAnonymously(auth).catch((e) => console.error("[Gacha] anon sign-in failed", e)); return; }
+    uid = user.uid;
+    await ensureUserDoc();
+    watchBalance();
+    hudNote.textContent = "EARN SHARDS IN BLACKJACK · SPEND THEM IN GACHA";
+  });
+
+  /* ============================================================
+     TABS
+     ============================================================ */
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b === btn));
+      const target = btn.dataset.view;
+      document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + target));
+      if (target === "collection") renderCollection();
+    });
+  });
+
+  /* ============================================================
+     CARD RENDERING (shared by gacha reveal + collection)
+     ============================================================ */
+  function buildCardEl(card, level, locked) {
+    const wrap = document.createElement("div");
+    wrap.className = "card rarity-" + card.rarity + (locked ? " locked" : "");
+
+    const frame = document.createElement("div");
+    frame.className = "card-frame frame-lvl-" + (level || 1);
+    if (card.image && !locked) {
+      const img = document.createElement("img");
+      img.src = card.image;
+      img.alt = card.name;
+      frame.appendChild(img);
+    } else {
+      frame.textContent = locked ? "?" : "";
+    }
+    wrap.appendChild(frame);
+
+    const name = document.createElement("div");
+    name.className = "card-name";
+    name.textContent = locked ? "???" : card.name;
+    wrap.appendChild(name);
+
+    const rarity = document.createElement("div");
+    rarity.className = "card-rarity";
+    rarity.textContent = locked ? "" : RARITY_LABEL[card.rarity];
+    wrap.appendChild(rarity);
+
+    if (!locked && level) {
+      const lvl = document.createElement("div");
+      lvl.className = "card-level";
+      lvl.textContent = "LV. " + level + (level >= MAX_CARD_LEVEL ? " (MAX)" : "");
+      wrap.appendChild(lvl);
+    }
+
+    return wrap;
+  }
+
+  function renderCollection() {
+    const grid = $("collectionGrid");
+    grid.innerHTML = "";
+    CARD_POOL.forEach((card) => {
+      const owned = state.cards[card.id];
+      grid.appendChild(buildCardEl(card, owned, !owned));
+    });
+  }
+
+  /* ============================================================
+     GACHA
+     ============================================================ */
+  function weightedRandomCard() {
+    const total = Object.values(RARITY_WEIGHTS).reduce((a, b) => a + b, 0);
+    let roll = Math.random() * total;
+    let chosenRarity = "common";
+    for (const [rarity, weight] of Object.entries(RARITY_WEIGHTS)) {
+      if (roll < weight) { chosenRarity = rarity; break; }
+      roll -= weight;
+    }
+    const pool = CARD_POOL.filter((c) => c.rarity === chosenRarity);
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function pullOne() {
+    const card = weightedRandomCard();
+    const current = state.cards[card.id] || 0;
+    const leveledUp = current > 0 && current < MAX_CARD_LEVEL;
+    state.cards[card.id] = Math.min(MAX_CARD_LEVEL, current + 1);
+    return { card, level: state.cards[card.id], isNew: current === 0, leveledUp };
+  }
+
+  async function doPull(count, cost) {
+    if (!uid) { alert("STILL CONNECTING — TRY AGAIN IN A MOMENT."); return; }
+    const ok = await trySpend(cost);
+    if (!ok) { alert("NOT ENOUGH VOID SHARDS."); return; }
+
+    const reveal = $("pullReveal");
+    reveal.innerHTML = "";
+    for (let i = 0; i < count; i++) {
+      const result = pullOne();
+      const el = buildCardEl(result.card, result.level, false);
+      if (result.isNew) el.title = "NEW";
+      else if (result.leveledUp) el.title = "LEVEL UP";
+      reveal.appendChild(el);
+    }
+    saveState();
+  }
+
+  $("pull1Btn").addEventListener("click", () => doPull(1, PULL_COST));
+  $("pull10Btn").addEventListener("click", () => doPull(10, PULL10_COST));
+  $("cost1").textContent = PULL_COST;
+  $("cost10").textContent = Math.round(PULL10_COST);
+
+  /* ============================================================
+     BLACKJACK
+     ============================================================ */
+  const SUITS = ["♠", "♥", "♦", "♣"];
+  const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+
+  let deck = [];
+  let dealerHand = [];
+  let playerHand = [];
+  let currentBet = 0;
+  let roundActive = false;
+
+  function freshDeck() {
+    const d = [];
+    for (const s of SUITS) for (const r of RANKS) d.push({ rank: r, suit: s });
+    for (let i = d.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [d[i], d[j]] = [d[j], d[i]];
+    }
+    return d;
+  }
+
+  function cardValue(card) {
+    if (card.rank === "A") return 11;
+    if (["J", "Q", "K"].includes(card.rank)) return 10;
+    return parseInt(card.rank, 10);
+  }
+
+  function handScore(hand) {
+    let score = hand.reduce((sum, c) => sum + cardValue(c), 0);
+    let aces = hand.filter((c) => c.rank === "A").length;
+    while (score > 21 && aces > 0) { score -= 10; aces--; }
+    return score;
+  }
+
+  function renderCardEl(card, hidden) {
+    const el = document.createElement("div");
+    el.className = "playing-card " + (hidden ? "hidden" : (["♥", "♦"].includes(card.suit) ? "red" : "black"));
+    el.textContent = hidden ? "" : card.rank + card.suit;
+    return el;
+  }
+
+  function renderTable(revealDealer) {
+    const dealerEl = $("dealerCards");
+    const playerEl = $("playerCards");
+    dealerEl.innerHTML = "";
+    playerEl.innerHTML = "";
+
+    dealerHand.forEach((c, i) => dealerEl.appendChild(renderCardEl(c, i === 0 && !revealDealer)));
+    playerHand.forEach((c) => playerEl.appendChild(renderCardEl(c, false)));
+
+    $("dealerScore").textContent = "SCORE: " + (revealDealer ? handScore(dealerHand) : "?");
+    $("playerScore").textContent = "SCORE: " + handScore(playerHand);
+  }
+
+  function setStatus(text, type) {
+    const el = $("bjStatus");
+    el.textContent = text;
+    el.className = "bj-status" + (type ? " " + type : "");
+  }
+
+  function setRoundControls(active) {
+    $("hitBtn").disabled = !active;
+    $("standBtn").disabled = !active;
+    $("doubleBtn").disabled = !active || myBalance < currentBet || playerHand.length !== 2;
+    $("dealBtn").disabled = active;
+    $("betInput").disabled = active;
+  }
+
+  function endRound(result) {
+    roundActive = false;
+    renderTable(true);
+    if (result === "win") { addEarnings(currentBet * 2); setStatus("YOU WIN — +" + currentBet + " SHARDS", "win"); }
+    else if (result === "blackjack") { addEarnings(Math.round(currentBet * 2.5)); setStatus("BLACKJACK! — +" + Math.round(currentBet * 1.5) + " SHARDS", "win"); }
+    else if (result === "push") { addEarnings(currentBet); setStatus("PUSH — BET RETURNED", "push"); }
+    else { setStatus("DEALER WINS — -" + currentBet + " SHARDS", "lose"); }
+    setRoundControls(false);
+  }
+
+  function dealerPlay() {
+    while (handScore(dealerHand) < 17) dealerHand.push(deck.pop());
+    const playerScore = handScore(playerHand);
+    const dealerScore = handScore(dealerHand);
+    if (dealerScore > 21 || playerScore > dealerScore) endRound("win");
+    else if (playerScore === dealerScore) endRound("push");
+    else endRound("lose");
+  }
+
+  $("dealBtn").addEventListener("click", async () => {
+    if (!uid) { alert("STILL CONNECTING — TRY AGAIN IN A MOMENT."); return; }
+    const bet = parseInt($("betInput").value, 10);
+    if (!bet || bet < 10) { alert("MINIMUM BET IS 10."); return; }
+    const ok = await trySpend(bet);
+    if (!ok) { alert("NOT ENOUGH VOID SHARDS."); return; }
+
+    currentBet = bet;
+    deck = freshDeck();
+    playerHand = [deck.pop(), deck.pop()];
+    dealerHand = [deck.pop(), deck.pop()];
+    roundActive = true;
+    renderTable(false);
+    setStatus("YOUR MOVE.");
+    setRoundControls(true);
+
+    if (handScore(playerHand) === 21) {
+      renderTable(true);
+      endRound("blackjack");
+    }
+  });
+
+  $("hitBtn").addEventListener("click", () => {
+    if (!roundActive) return;
+    playerHand.push(deck.pop());
+    renderTable(false);
+    $("doubleBtn").disabled = true;
+    if (handScore(playerHand) > 21) endRound("lose");
+  });
+
+  $("standBtn").addEventListener("click", () => {
+    if (!roundActive) return;
+    dealerPlay();
+  });
+
+  $("doubleBtn").addEventListener("click", async () => {
+    if (!roundActive || playerHand.length !== 2) return;
+    const ok = await trySpend(currentBet);
+    if (!ok) { alert("NOT ENOUGH VOID SHARDS TO DOUBLE."); return; }
+    currentBet *= 2;
+    playerHand.push(deck.pop());
+    renderTable(false);
+    if (handScore(playerHand) > 21) { endRound("lose"); return; }
+    dealerPlay();
+  });
+
+  /* ============================================================
+     INIT
+     ============================================================ */
+  renderTable(false);
+  setRoundControls(false);
+  renderCollection();
+})();
+</script>
+</body>
+</html>

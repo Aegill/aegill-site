@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#050505">
+<title>Aegill // BLACKJACK TABLE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#050505;--panel:#0b0b0b;--border:#292929;--border-lt:#444;--text:#eee;--dim:#888;--dim2:#666}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:"Space Mono",monospace;min-height:100vh}
+  h1,h2,h3{font-family:"Unbounded",sans-serif;margin:0}
+  .shell{max-width:1000px;margin:0 auto;padding:24px 18px 60px}
+  .window-bar{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);
+    padding:10px 16px;font-size:11px;letter-spacing:.08em;color:var(--dim);margin-bottom:18px}
+  .window-bar b{color:var(--text)}
+
+  .panel-box{border:1px solid var(--border);background:rgba(8,8,8,.6);padding:20px;margin-bottom:16px}
+  .kicker{font-size:11px;letter-spacing:.16em;color:var(--dim);margin-bottom:6px}
+  .title{font-size:18px;margin-bottom:14px}
+
+  .field{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  input[type=text],input[type=number]{border:1px solid var(--border-lt);background:#050505;color:#eee;
+    padding:9px;font:12px "Space Mono",monospace}
+  .btn{border:1px solid var(--border-lt);background:#0b0b0b;color:#eee;padding:10px 14px;
+    font:10px "Space Mono",monospace;letter-spacing:.08em;cursor:pointer}
+  .btn:hover:not(:disabled){border-color:#aaa;background:#151515}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+  .btn.primary{background:#eee;color:#050505;border-color:#eee}
+
+  .dealer-row{margin-bottom:22px}
+  .hand-label{font-size:10px;letter-spacing:.1em;color:var(--dim);margin-bottom:8px}
+  .cards{display:flex;gap:6px;flex-wrap:wrap;min-height:60px}
+  .playing-card{width:40px;height:58px;border:1px solid var(--border-lt);border-radius:4px;background:#111;
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+  .playing-card.red{color:#ff8080}
+  .playing-card.black{color:#eee}
+  .playing-card.hidden{background:repeating-linear-gradient(45deg,#161616,#161616 4px,#0b0b0b 4px,#0b0b0b 8px)}
+  .score{font-size:11px;color:var(--dim);margin-top:6px}
+
+  .players-grid{display:grid;gap:12px}
+  .player-seat{border:1px solid var(--border);padding:12px 14px;background:#070707}
+  .player-seat.turn{border-color:#eee;box-shadow:0 0 0 1px #333}
+  .player-seat .pname{font-size:12px;margin-bottom:2px}
+  .player-seat .pmeta{font-size:9px;color:var(--dim2);margin-bottom:8px}
+  .player-seat .status-tag{font-size:9px;letter-spacing:.08em;padding:2px 6px;border:1px solid var(--border-lt);
+    display:inline-block;margin-left:6px}
+  .status-tag.won{color:#9ff0b0;border-color:#2f5c3d}
+  .status-tag.lost{color:#ff8f8f;border-color:#663838}
+  .status-tag.push{color:#ffd98f;border-color:#5c4e2f}
+
+  .lobby-status{font-size:11px;color:var(--dim)}
+  .setup-name{max-width:420px}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="window-bar"><span>SYS://AEGILL — <b>BLACKJACK.TABLE</b></span><span id="connStatus">CONNECTING...</span></div>
+
+  <!-- name entry, shown once before joining -->
+  <div class="panel-box setup-name" id="nameSetup">
+    <div class="kicker">// IDENTIFY YOURSELF</div>
+    <h3 class="title">CHOOSE A NAME</h3>
+    <div class="field">
+      <input type="text" id="nameInput" maxlength="20" placeholder="YOUR NAME">
+      <button class="btn primary" id="nameSubmit">CONTINUE →</button>
+    </div>
+  </div>
+
+  <div id="tableUI" hidden>
+    <div class="panel-box">
+      <div class="kicker">// YOUR BALANCE</div>
+      <h3 class="title" id="myBalance">0 VOID SHARDS</h3>
+      <div class="lobby-status" id="phaseLabel">LOADING TABLE...</div>
+    </div>
+
+    <div class="panel-box dealer-row">
+      <div class="hand-label">DEALER</div>
+      <div class="cards" id="dealerCards"></div>
+      <div class="score" id="dealerScore">SCORE: —</div>
+    </div>
+
+    <div class="panel-box" id="bettingBox">
+      <div class="kicker">// JOIN THIS ROUND</div>
+      <div class="field">
+        <input type="number" id="betInput" min="10" step="10" value="50">
+        <button class="btn primary" id="joinBtn">PLACE BET</button>
+        <button class="btn" id="dealBtn">DEAL (START ROUND)</button>
+      </div>
+    </div>
+
+    <div class="panel-box" id="myTurnBox" hidden>
+      <div class="kicker">// YOUR TURN</div>
+      <div class="field">
+        <button class="btn primary" id="hitBtn">HIT</button>
+        <button class="btn" id="standBtn">STAND</button>
+      </div>
+    </div>
+
+    <div class="panel-box" id="newRoundBox" hidden>
+      <button class="btn primary" id="newRoundBtn">NEW ROUND</button>
+    </div>
+
+    <div class="panel-box">
+      <div class="kicker">// SEATED PLAYERS</div>
+      <div class="players-grid" id="playersGrid"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+  import {
+    getAuth, signInAnonymously, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot,
+    collection, runTransaction, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+  /* Same project as the rest of the site. */
+  const firebaseConfig = {
+    apiKey: "AIzaSyBjBrzjrdtpx_qdpHMR6SMTthU5vI1Zenk",
+    authDomain: "test-abb3e.firebaseapp.com",
+    projectId: "test-abb3e",
+    storageBucket: "test-abb3e.firebasestorage.app",
+    messagingSenderId: "685916701163",
+    appId: "1:685916701163:web:1ab7dca6859162d5c499ae"
+  };
+
+  const TABLE_ID = "lobby"; // single shared table
+  const STARTING_BALANCE = 500;
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  const $ = (id) => document.getElementById(id);
+  const tableRef = doc(db, "blackjackTables", TABLE_ID);
+  const playersCol = (uid) => doc(db, "blackjackTables", TABLE_ID, "players", uid);
+
+  let uid = null;
+  let myName = localStorage.getItem("aegill_bj_name") || "";
+  let tableState = null;
+  let myPlayerState = null;
+  let myBalance = 0;
+
+  /* ============================================================
+     CARDS / SCORING (shared helpers, mirror single-player logic)
+     ============================================================ */
+  const SUITS = ["♠", "♥", "♦", "♣"];
+  const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+
+  function freshDeck() {
+    const d = [];
+    for (const s of SUITS) for (const r of RANKS) d.push({ rank: r, suit: s });
+    for (let i = d.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [d[i], d[j]] = [d[j], d[i]];
+    }
+    return d;
+  }
+  function cardValue(card) {
+    if (card.rank === "A") return 11;
+    if (["J", "Q", "K"].includes(card.rank)) return 10;
+    return parseInt(card.rank, 10);
+  }
+  function handScore(hand) {
+    let score = hand.reduce((s, c) => s + cardValue(c), 0);
+    let aces = hand.filter((c) => c.rank === "A").length;
+    while (score > 21 && aces > 0) { score -= 10; aces--; }
+    return score;
+  }
+  function renderCardEl(card, hidden) {
+    const el = document.createElement("div");
+    el.className = "playing-card " + (hidden ? "hidden" : (["♥", "♦"].includes(card.suit) ? "red" : "black"));
+    el.textContent = hidden ? "" : card.rank + card.suit;
+    return el;
+  }
+
+  /* ============================================================
+     AUTH — anonymous, persisted per browser
+     ============================================================ */
+  function ensureUserDoc(theUid) {
+    const ref = doc(db, "users", theUid);
+    return getDoc(ref).then((snap) => {
+      if (!snap.exists()) {
+        return setDoc(ref, { balance: STARTING_BALANCE, name: myName || "GUEST" });
+      }
+    }).then(() => ref);
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { signInAnonymously(auth).catch((e) => console.error("[BJ] anon sign-in failed", e)); return; }
+    uid = user.uid;
+    $("connStatus").textContent = "CONNECTED";
+
+    if (myName) {
+      $("nameSetup").hidden = true;
+      $("tableUI").hidden = false;
+      await ensureUserDoc(uid);
+      watchMyBalance();
+      watchTable();
+      watchPlayers();
+    }
+  });
+
+  $("nameSubmit").addEventListener("click", async () => {
+    const val = $("nameInput").value.trim();
+    if (!val) { alert("ENTER A NAME."); return; }
+    myName = val.slice(0, 20);
+    localStorage.setItem("aegill_bj_name", myName);
+    $("nameSetup").hidden = true;
+    $("tableUI").hidden = false;
+    await ensureUserDoc(uid);
+    await updateDoc(doc(db, "users", uid), { name: myName });
+    watchMyBalance();
+    watchTable();
+    watchPlayers();
+  });
+
+  function watchMyBalance() {
+    onSnapshot(doc(db, "users", uid), (snap) => {
+      if (!snap.exists()) return;
+      myBalance = snap.data().balance || 0;
+      $("myBalance").textContent = Math.floor(myBalance) + " VOID SHARDS";
+    });
+  }
+
+  /* ============================================================
+     TABLE STATE (shared doc, watched by everyone)
+     ============================================================ */
+  function defaultTable() {
+    return {
+      phase: "betting",
+      deck: [],
+      deckIndex: 0,
+      dealerHand: [],
+      turnOrder: [],
+      currentTurnIndex: 0,
+      roundId: 0,
+      updatedAt: serverTimestamp()
+    };
+  }
+
+  function watchTable() {
+    onSnapshot(tableRef, async (snap) => {
+      if (!snap.exists()) {
+        await setDoc(tableRef, defaultTable()).catch(() => {}); // race is fine, first writer wins
+        return;
+      }
+      tableState = snap.data();
+      renderTable();
+    });
+  }
+
+  function watchPlayers() {
+    onSnapshot(collection(db, "blackjackTables", TABLE_ID, "players"), (snap) => {
+      const players = {};
+      snap.forEach((d) => { players[d.id] = d.data(); });
+      myPlayerState = players[uid] || null;
+      renderPlayers(players);
+    });
+  }
+
+  function renderTable() {
+    if (!tableState) return;
+    const revealDealer = tableState.phase === "dealerTurn" || tableState.phase === "results";
+    const dealerEl = $("dealerCards");
+    dealerEl.innerHTML = "";
+    (tableState.dealerHand || []).forEach((c, i) => dealerEl.appendChild(renderCardEl(c, i === 0 && !revealDealer && tableState.phase !== "betting")));
+    $("dealerScore").textContent = "SCORE: " + (revealDealer ? handScore(tableState.dealerHand || []) : (tableState.dealerHand?.length ? "?" : "—"));
+
+    $("phaseLabel").textContent = {
+      betting: "BETTING OPEN — PLACE A BET OR WAIT FOR THE HOST TO DEAL.",
+      playing: "ROUND IN PROGRESS.",
+      dealerTurn: "DEALER IS PLAYING...",
+      results: "ROUND OVER."
+    }[tableState.phase] || "";
+
+    $("bettingBox").hidden = tableState.phase !== "betting";
+    $("newRoundBox").hidden = tableState.phase !== "results";
+
+    const isMyTurn = tableState.phase === "playing" &&
+      tableState.turnOrder && tableState.turnOrder[tableState.currentTurnIndex] === uid;
+    $("myTurnBox").hidden = !isMyTurn;
+  }
+
+  function renderPlayers(players) {
+    const grid = $("playersGrid");
+    grid.innerHTML = "";
+    const order = (tableState && tableState.turnOrder && tableState.turnOrder.length)
+      ? tableState.turnOrder
+      : Object.keys(players);
+
+    order.forEach((pid) => {
+      const p = players[pid];
+      if (!p) return;
+      const seat = document.createElement("div");
+      seat.className = "player-seat" + (tableState && tableState.phase === "playing" &&
+        tableState.turnOrder[tableState.currentTurnIndex] === pid ? " turn" : "");
+
+      const name = document.createElement("div");
+      name.className = "pname";
+      name.textContent = (p.name || "GUEST") + (pid === uid ? " (YOU)" : "");
+      if (p.status && ["won", "lost", "push", "blackjack"].includes(p.status)) {
+        const tag = document.createElement("span");
+        tag.className = "status-tag " + (p.status === "lost" ? "lost" : p.status === "push" ? "push" : "won");
+        tag.textContent = p.status.toUpperCase();
+        name.appendChild(tag);
+      }
+      seat.appendChild(name);
+
+      const meta = document.createElement("div");
+      meta.className = "pmeta";
+      meta.textContent = "BET: " + (p.bet || 0) + " // STATUS: " + (p.status || "waiting").toUpperCase();
+      seat.appendChild(meta);
+
+      const cardsEl = document.createElement("div");
+      cardsEl.className = "cards";
+      (p.hand || []).forEach((c) => cardsEl.appendChild(renderCardEl(c, false)));
+      seat.appendChild(cardsEl);
+
+      const scoreEl = document.createElement("div");
+      scoreEl.className = "score";
+      scoreEl.textContent = "SCORE: " + ((p.hand || []).length ? handScore(p.hand) : "—");
+      seat.appendChild(scoreEl);
+
+      grid.appendChild(seat);
+    });
+  }
+
+  /* ============================================================
+     ACTIONS
+     ============================================================ */
+  $("joinBtn").addEventListener("click", async () => {
+    const bet = parseInt($("betInput").value, 10);
+    if (!bet || bet < 10) { alert("MINIMUM BET IS 10."); return; }
+    if (bet > myBalance) { alert("NOT ENOUGH VOID SHARDS."); return; }
+
+    await setDoc(playersCol(uid), {
+      name: myName, bet, hand: [], status: "betting", joinedAt: serverTimestamp()
+    });
+  });
+
+  $("dealBtn").addEventListener("click", async () => {
+    try {
+      await runTransaction(db, async (t) => {
+        const tSnap = await t.get(tableRef);
+        const table = tSnap.exists() ? tSnap.data() : defaultTable();
+        if (table.phase !== "betting") return; // already dealt by someone else
+
+        const playersSnap = await getDocsInTransactionWorkaround();
+        const seated = playersSnap.filter((p) => p.data.status === "betting");
+        if (!seated.length) throw new Error("NO_PLAYERS");
+
+        const deck = freshDeck();
+        let idx = 0;
+        const dealerHand = [deck[idx++], deck[idx++]];
+        const turnOrder = [];
+
+        seated.forEach((p) => {
+          const hand = [deck[idx++], deck[idx++]];
+          t.update(playersCol(p.id), { hand, status: "playing" });
+          turnOrder.push(p.id);
+        });
+
+        t.set(tableRef, {
+          phase: "playing",
+          deck,
+          deckIndex: idx,
+          dealerHand,
+          turnOrder,
+          currentTurnIndex: 0,
+          roundId: (table.roundId || 0) + 1,
+          updatedAt: serverTimestamp()
+        });
+      });
+    } catch (e) {
+      if (e.message !== "NO_PLAYERS") console.error("[BJ] deal failed", e);
+      else alert("NO PLAYERS HAVE BET YET.");
+    }
+  });
+
+  // Firestore JS SDK transactions can't run arbitrary queries directly in
+  // all versions, so we fetch the players list once outside the strict
+  // transaction read-set (acceptable here: worst case is a rare re-deal
+  // with slightly stale seating, which just means someone missed a round).
+  async function getDocsInTransactionWorkaround() {
+    const { getDocs } = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js");
+    const snap = await getDocs(collection(db, "blackjackTables", TABLE_ID, "players"));
+    const out = [];
+    snap.forEach((d) => out.push({ id: d.id, data: d.data() }));
+    return out;
+  }
+
+  $("hitBtn").addEventListener("click", async () => {
+    await runTransaction(db, async (t) => {
+      const tSnap = await t.get(tableRef);
+      const table = tSnap.data();
+      if (table.turnOrder[table.currentTurnIndex] !== uid) return;
+
+      const pRef = playersCol(uid);
+      const pSnap = await t.get(pRef);
+      const p = pSnap.data();
+
+      const card = table.deck[table.deckIndex];
+      const newHand = [...p.hand, card];
+      const newIndex = table.deckIndex + 1;
+      const bust = handScore(newHand) > 21;
+
+      t.update(pRef, { hand: newHand, status: bust ? "bust" : "playing" });
+
+      const updates = { deckIndex: newIndex };
+      if (bust) Object.assign(updates, advanceTurn(table));
+      t.update(tableRef, updates);
+    });
+  });
+
+  $("standBtn").addEventListener("click", async () => {
+    await runTransaction(db, async (t) => {
+      const tSnap = await t.get(tableRef);
+      const table = tSnap.data();
+      if (table.turnOrder[table.currentTurnIndex] !== uid) return;
+
+      t.update(playersCol(uid), { status: "stood" });
+      t.update(tableRef, advanceTurn(table));
+    });
+  });
+
+  function advanceTurn(table) {
+    const next = table.currentTurnIndex + 1;
+    if (next >= table.turnOrder.length) return { phase: "dealerTurn", currentTurnIndex: next };
+    return { currentTurnIndex: next };
+  }
+
+  // Every connected client nudges the dealer forward — idempotent via transactions,
+  // so it's safe for multiple clients to attempt this at once.
+  onSnapshot(tableRef, async (snap) => {
+    if (!snap.exists()) return;
+    const table = snap.data();
+    if (table.phase !== "dealerTurn") return;
+
+    await runTransaction(db, async (t) => {
+      const tSnap = await t.get(tableRef);
+      const cur = tSnap.data();
+      if (cur.phase !== "dealerTurn") return;
+
+      const score = handScore(cur.dealerHand);
+      if (score < 17) {
+        const card = cur.deck[cur.deckIndex];
+        t.update(tableRef, { dealerHand: [...cur.dealerHand, card], deckIndex: cur.deckIndex + 1 });
+        return;
+      }
+
+      // dealer is done — settle the round
+      const dealerScore = handScore(cur.dealerHand);
+      for (const pid of cur.turnOrder) {
+        const pRef = playersCol(pid);
+        const pSnap = await t.get(pRef);
+        const p = pSnap.data();
+        const userRef = doc(db, "users", pid);
+        const userSnap = await t.get(userRef);
+        const balance = userSnap.data().balance || 0;
+
+        let result, delta;
+        const pScore = handScore(p.hand);
+        if (p.status === "bust") { result = "lost"; delta = 0; }
+        else if (pScore === 21 && p.hand.length === 2) { result = "blackjack"; delta = Math.round(p.bet * 2.5); }
+        else if (dealerScore > 21 || pScore > dealerScore) { result = "won"; delta = p.bet * 2; }
+        else if (pScore === dealerScore) { result = "push"; delta = p.bet; }
+        else { result = "lost"; delta = 0; }
+
+        t.update(userRef, { balance: balance + delta });
+        t.update(pRef, { status: result });
+      }
+      t.update(tableRef, { phase: "results" });
+    }).catch((e) => console.warn("[BJ] dealer step skipped (likely race, harmless)", e));
+  });
+
+  $("newRoundBtn").addEventListener("click", async () => {
+    await runTransaction(db, async (t) => {
+      const tSnap = await t.get(tableRef);
+      const table = tSnap.data();
+      if (table.phase !== "results") return;
+      t.set(tableRef, defaultTable());
+    });
+    // clear player seats for the next round
+    const { getDocs, deleteDoc } = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js");
+    const snap = await getDocs(collection(db, "blackjackTables", TABLE_ID, "players"));
+    snap.forEach((d) => deleteDoc(d.ref));
+  });
+</script>
+</body>
+</html>
