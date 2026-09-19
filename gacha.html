@@ -383,10 +383,28 @@
      AUTO HEIGHT — iframe embed
      ============================================================ */
 function reportHeight() {
-    parent.postMessage({ source: "aegill-embed", height: document.body.scrollHeight }, "*");
-  }
-  new ResizeObserver(reportHeight).observe(document.body);
-  window.addEventListener("load", reportHeight);
+  const height = Math.max(
+    document.body.scrollHeight,
+    document.documentElement.scrollHeight
+  );
+
+  parent.postMessage({
+    source: "aegill-embed",
+    height
+  }, "*");
+}
+
+const resizeObserver = new ResizeObserver(reportHeight);
+
+resizeObserver.observe(document.body);
+resizeObserver.observe(document.documentElement);
+
+window.addEventListener("load", reportHeight);
+
+document.addEventListener("DOMContentLoaded", () => {
+  reportHeight();
+
+  requestAnimationFrame(reportHeight);
 })();
 </script>
 </body>
