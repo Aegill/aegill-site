@@ -328,7 +328,6 @@
       myBalance = snap.exists() ? (snap.data().balance || 0) : 0;
       balanceReady = true;
       renderBalance();
-      setRoundControls(roundActive); // refresh double-button afford check
     });
   }
 
