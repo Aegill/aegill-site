@@ -72,6 +72,7 @@
   /* ---- card (shared between reveal + collection) ---- */
   .card{width:140px;border:1px solid var(--border);background:#0a0a0a;padding:10px;text-align:center;position:relative}
   .card.locked{opacity:.32;filter:grayscale(1)}
+  .card:not(.locked){cursor:pointer}
   .card-frame{width:100%;aspect-ratio:3/4;border:1px solid var(--border-lt);background:#111;
     display:flex;align-items:center;justify-content:center;margin-bottom:8px;overflow:hidden;position:relative}
   .card-frame img{width:100%;height:100%;object-fit:cover}
@@ -87,6 +88,67 @@
   .rarity-rare .card-frame{border-color:var(--rare)}
   .rarity-epic .card-frame{border-color:var(--epic)}
   .rarity-legendary .card-frame{border-color:var(--legendary)}
+
+  /* ---- rarity glow / shine effects ---- */
+  /* Shared shine-sweep pseudo-element — a soft diagonal highlight that
+     sweeps across the frame. Rarity classes below turn it on and tune it. */
+  .card-frame::after{
+    content:"";
+    position:absolute;
+    top:0; left:-150%;
+    width:55%; height:100%;
+    background:linear-gradient(120deg, transparent, rgba(255,255,255,.0), transparent);
+    transform:skewX(-20deg);
+    pointer-events:none;
+  }
+
+  .rarity-rare .card-frame{
+    box-shadow:0 0 10px 1px rgba(111,179,255,.4);
+    animation:glow-rare 2.6s ease-in-out infinite;
+  }
+  .rarity-rare .card-frame::after{
+    background:linear-gradient(120deg, transparent, rgba(111,179,255,.5), transparent);
+    animation:shine-sweep 3.4s ease-in-out infinite;
+  }
+
+  .rarity-epic .card-frame{
+    box-shadow:0 0 14px 2px rgba(192,123,255,.5);
+    animation:glow-epic 2.1s ease-in-out infinite;
+  }
+  .rarity-epic .card-frame::after{
+    background:linear-gradient(120deg, transparent, rgba(192,123,255,.6), transparent);
+    animation:shine-sweep 2.5s ease-in-out infinite;
+  }
+
+  .rarity-legendary .card-frame{
+    box-shadow:0 0 18px 3px rgba(255,204,85,.6), 0 0 34px 8px rgba(255,204,85,.25);
+    animation:glow-legendary 1.7s ease-in-out infinite;
+  }
+  .rarity-legendary .card-frame::after{
+    background:linear-gradient(120deg, transparent, rgba(255,230,150,.85), transparent);
+    animation:shine-sweep 1.9s ease-in-out infinite;
+  }
+
+  @keyframes shine-sweep{
+    0%{ left:-150%; }
+    55%{ left:150%; }
+    100%{ left:150%; }
+  }
+  @keyframes glow-rare{
+    0%,100%{ box-shadow:0 0 8px 1px rgba(111,179,255,.35); }
+    50%{ box-shadow:0 0 16px 3px rgba(111,179,255,.7); }
+  }
+  @keyframes glow-epic{
+    0%,100%{ box-shadow:0 0 10px 2px rgba(192,123,255,.45); }
+    50%{ box-shadow:0 0 22px 5px rgba(192,123,255,.85); }
+  }
+  @keyframes glow-legendary{
+    0%,100%{ box-shadow:0 0 14px 3px rgba(255,204,85,.55), 0 0 30px 6px rgba(255,204,85,.25); }
+    50%{ box-shadow:0 0 28px 6px rgba(255,204,85,.95), 0 0 54px 14px rgba(255,204,85,.4); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .card-frame, .card-frame::after{ animation:none !important; }
+  }
 
   /*
     EXTENSION POINT — hook your own animated frames / effects here.
@@ -104,6 +166,20 @@
   .frame-lvl-5{}
 
   .collection-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px}
+
+  /* ---- card inspect modal ---- */
+  .card-modal{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card-modal[hidden]{display:none}
+  .card-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.78)}
+  .card-modal-inner{position:relative;z-index:1}
+  .card-modal-close{position:absolute;top:-38px;right:0;border:1px solid var(--border-lt);background:#0b0b0b;
+    color:#eee;padding:8px 12px;font:10px "Space Mono",monospace;letter-spacing:.08em;cursor:pointer}
+  .card-modal-close:hover{border-color:#aaa}
+  .card-modal .card{width:min(80vw,260px);cursor:default}
+  .card-modal .card-name{font-size:16px}
+  .card-modal .card-rarity{font-size:11px}
+  .card-modal .card-level{font-size:11px}
+
 
  @media(max-width:640px){
     .hud{
@@ -220,6 +296,14 @@
     </div>
   </div>
 
+</div>
+
+<div class="card-modal" id="cardModal" hidden>
+  <div class="card-modal-backdrop" id="cardModalBackdrop"></div>
+  <div class="card-modal-inner">
+    <button class="card-modal-close" id="cardModalClose" type="button">× CLOSE</button>
+    <div id="cardModalBody"></div>
+  </div>
 </div>
 
 <script type="module">
@@ -405,9 +489,28 @@
   });
 
   /* ============================================================
+     CARD INSPECT MODAL — click any revealed card to see it larger,
+     with the same rarity glow/shine effect applied.
+     ============================================================ */
+  const cardModal = $("cardModal");
+  const cardModalBody = $("cardModalBody");
+
+  function openCardModal(card, level) {
+    cardModalBody.innerHTML = "";
+    cardModalBody.appendChild(buildCardEl(card, level, false, { clickable: false }));
+    cardModal.hidden = false;
+  }
+  function closeCardModal() { cardModal.hidden = true; }
+
+  $("cardModalClose").addEventListener("click", closeCardModal);
+  $("cardModalBackdrop").addEventListener("click", closeCardModal);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeCardModal(); });
+
+  /* ============================================================
      CARD RENDERING (shared by gacha reveal + collection)
      ============================================================ */
-  function buildCardEl(card, level, locked) {
+  function buildCardEl(card, level, locked, opts) {
+    const clickable = !locked && (!opts || opts.clickable !== false);
     const wrap = document.createElement("div");
     wrap.className = "card rarity-" + card.rarity + (locked ? " locked" : "");
 
@@ -438,6 +541,10 @@
       lvl.className = "card-level";
       lvl.textContent = "LV. " + level + (level >= MAX_CARD_LEVEL ? " (MAX)" : "");
       wrap.appendChild(lvl);
+    }
+
+    if (clickable) {
+      wrap.addEventListener("click", () => openCardModal(card, level));
     }
 
     return wrap;
