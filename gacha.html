@@ -437,6 +437,18 @@
   renderTable(false);
   setRoundControls(false);
   renderCollection();
+  /* ============================================================
+     AUTO HEIGHT — iframe embed
+     ============================================================ */
+  function reportHeight() {
+    parent.postMessage({
+      source: "aegill-embed",
+      height: document.body.scrollHeight
+    }, "*");
+  }
+
+  new ResizeObserver(reportHeight).observe(document.body);
+  window.addEventListener("load", reportHeight);
 })();
 </script>
 </body>
