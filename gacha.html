@@ -119,45 +119,11 @@
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" data-view="blackjack">BLACKJACK</button>
     <button class="tab-btn" data-view="gacha">GACHA</button>
     <button class="tab-btn" data-view="collection">COLLECTION</button>
   </div>
 
-  <!-- ================= BLACKJACK ================= -->
-  <div class="view active" id="view-blackjack">
-    <div class="panel-box">
-      <div class="kicker">// FARM CURRENCY</div>
-      <h3 class="title">BLACKJACK</h3>
-
-      <div class="bj-table">
-        <div>
-          <div class="bj-hand-label">DEALER</div>
-          <div class="bj-cards" id="dealerCards"></div>
-          <div class="bj-score" id="dealerScore">SCORE: —</div>
-        </div>
-        <div>
-          <div class="bj-hand-label">YOU</div>
-          <div class="bj-cards" id="playerCards"></div>
-          <div class="bj-score" id="playerScore">SCORE: —</div>
-        </div>
-      </div>
-
-      <div class="bj-controls">
-        <div class="bj-bet">
-          <label for="betInput" style="font-size:10px;color:var(--dim)">BET</label>
-          <input id="betInput" type="number" min="10" step="10" value="50">
-        </div>
-        <button class="btn primary" id="dealBtn">DEAL</button>
-        <button class="btn" id="hitBtn" disabled>HIT</button>
-        <button class="btn" id="standBtn" disabled>STAND</button>
-        <button class="btn" id="doubleBtn" disabled>DOUBLE</button>
-      </div>
-
-      <div class="bj-status" id="bjStatus">PLACE A BET AND DEAL.</div>
-    </div>
-  </div>
-
+  
   <!-- ================= GACHA ================= -->
   <div class="view" id="view-gacha">
     <div class="panel-box">
