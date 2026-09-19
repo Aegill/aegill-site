@@ -142,6 +142,12 @@
   const tableRef = doc(db, "blackjackTables", TABLE_ID);
   const playersCol = (uid) => doc(db, "blackjackTables", TABLE_ID, "players", uid);
 
+  function reportHeight() {
+    parent.postMessage({ source: "aegill-embed", height: document.body.scrollHeight }, "*");
+  }
+  new ResizeObserver(reportHeight).observe(document.body);
+  window.addEventListener("load", reportHeight);
+
   let uid = null;
   let myName = localStorage.getItem("aegill_bj_name") || "";
   let tableState = null;
