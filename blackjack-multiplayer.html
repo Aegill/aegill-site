@@ -114,7 +114,8 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
   import {
-    getAuth, signInAnonymously, onAuthStateChanged
+    getAuth, signInAnonymously, onAuthStateChanged,
+    setPersistence, browserLocalPersistence, inMemoryPersistence
   } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
   import {
     getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot,
@@ -138,6 +139,12 @@
   const auth = getAuth(app);
   const db = getFirestore(app);
 
+  // If persistent storage (IndexedDB/localStorage) is blocked — common for a
+  // cross-origin iframe in incognito — fall back to in-memory persistence.
+  // Without this, a blocked write can make Firebase repeatedly "forget" the
+  // just-created anonymous user, which was creating new accounts in a loop.
+  setPersistence(auth, browserLocalPersistence).catch(() => setPersistence(auth, inMemoryPersistence));
+
   const $ = (id) => document.getElementById(id);
   const tableRef = doc(db, "blackjackTables", TABLE_ID);
   const playersCol = (uid) => doc(db, "blackjackTables", TABLE_ID, "players", uid);
@@ -153,6 +160,7 @@
   let tableState = null;
   let myPlayerState = null;
   let myBalance = 0;
+  let signingIn = false;
 
   /* ============================================================
      CARDS / SCORING (shared helpers, mirror single-player logic)
@@ -200,7 +208,14 @@
   }
 
   onAuthStateChanged(auth, async (user) => {
-    if (!user) { signInAnonymously(auth).catch((e) => console.error("[BJ] anon sign-in failed", e)); return; }
+    if (!user) {
+      if (signingIn) return; // already trying — don't stack up more sign-in attempts
+      signingIn = true;
+      try { await signInAnonymously(auth); }
+      catch (e) { console.error("[BJ] anon sign-in failed", e); }
+      finally { signingIn = false; }
+      return;
+    }
     uid = user.uid;
     $("connStatus").textContent = "CONNECTED";
 
