@@ -407,6 +407,20 @@
   let balanceReady = false;
   let signingIn = false;
 
+  // Firebase Auth's own session storage (IndexedDB) doesn't reliably survive
+  // reloads inside a cross-origin iframe — but plain localStorage does. So the
+  // "who am I" for game purposes is OUR id, not Firebase's ephemeral auth uid.
+  // Firebase Anonymous Auth is still used underneath just to satisfy Firestore's
+  // "request.auth != null" security rules.
+  function getPersistentId() {
+    let id = localStorage.getItem("aegill_player_id");
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : "p_" + Date.now() + "_" + Math.random().toString(36).slice(2));
+      localStorage.setItem("aegill_player_id", id);
+    }
+    return id;
+  }
+
   function userRef() { return doc(db, "users", uid); }
 
   function watchBalance() {
@@ -469,7 +483,7 @@
       finally { signingIn = false; }
       return;
     }
-    uid = user.uid;
+    uid = getPersistentId();
     watchBalance();
     hudNote.textContent = "EARN SHARDS IN BLACKJACK · SPEND THEM IN GACHA";
   });
