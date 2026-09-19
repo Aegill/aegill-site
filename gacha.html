@@ -105,7 +105,78 @@
 
   .collection-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px}
 
-  @media(max-width:640px){ .hud{flex-direction:column;align-items:flex-start} }
+ @media(max-width:640px){
+    .hud{
+      flex-direction:column;
+      align-items:flex-start;
+    }
+
+    .shell{
+      width:100%;
+      padding:14px 10px 40px;
+    }
+
+    .panel-box{
+      padding:14px;
+    }
+
+    .gacha-actions{
+      display:grid;
+      grid-template-columns:1fr;
+    }
+
+    .gacha-actions .btn{
+      width:100%;
+    }
+
+    .pull-reveal{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:10px;
+    }
+
+    .card{
+      width:100%;
+      min-width:0;
+    }
+
+    .collection-grid{
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:10px;
+    }
+
+    .window-bar{
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .btn,
+    .tab-btn{
+      max-width:100%;
+      white-space:normal;
+    }
+  }
+
+  @media(max-width:380px){
+    .shell{
+      padding-left:6px;
+      padding-right:6px;
+    }
+
+    .panel-box{
+      padding:10px;
+    }
+
+    .pull-reveal,
+    .collection-grid{
+      grid-template-columns:1fr;
+    }
+
+    .tab-btn{
+      width:100%;
+    }
+  }
+</style>
 </style>
 </head>
 <body>
